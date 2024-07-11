@@ -103,6 +103,8 @@ def playmusic(audio_data, generated_prompt, songcounter):
     wav_filename = "temp_audio.wav"
     mp3_filename = f"music_prompt.mp3"
 
+    audio_data_int16 = np.int16(audio_data * 32767)
+
     # Start pyaudio stream and play audio
     p = pyaudio.PyAudio()
     stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, output=True)
@@ -110,9 +112,9 @@ def playmusic(audio_data, generated_prompt, songcounter):
 
     with wave.open(wav_filename, 'wb') as wf:
         wf.setnchannels(CHANNELS)
-        wf.setsampwidth(p.get_sample_size(FORMAT))
+        wf.setsampwidth(2)
         wf.setframerate(RATE)
-        wf.writeframes(audio_data)
+        wf.writeframes(audio_data_int16.tobytes())
 
 
     stream.stop_stream()
@@ -120,7 +122,7 @@ def playmusic(audio_data, generated_prompt, songcounter):
     p.terminate()
 
     audio = AudioSegment.from_wav(wav_filename)
-    audio.export(mp3_filename, format="mp3", bitrate="320k")
+    audio.export(mp3_filename, format="mp3", bitrate="320k", parameters=["-ar", "44100"])
 
     # Optionally, remove the temporary WAV file
     os.remove(wav_filename)

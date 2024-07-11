@@ -4,6 +4,8 @@ import pyaudio
 import numpy as np
 import os
 import random
+import wave
+from pydub import AudioSegment
 
 # Path to the pre-trained model
 MODEL_PATH = "facebook/musicgen-small"
@@ -21,7 +23,7 @@ def print_shapes(data_list):
     for idx, chunk in enumerate(data_list):
         print(f"Shape of chunk {idx}: {chunk.shape}")
 
-def generate_music(audio_chunk, text_inputs, songcountergoal):
+def generate_music(audio_chunk, text_inputs, songcountergoal, generated_prompt):
     global songcounter
 
     while songcounter < songcountergoal:
@@ -52,7 +54,7 @@ def generate_music(audio_chunk, text_inputs, songcountergoal):
             first_chunk = first_chunk.astype(np.float32)
             first_chunk /= np.max(np.abs(first_chunk))
             # Send the first chunk for processing
-            resizeandplay_audio(first_chunk, songcounter, songcountergoal)
+            resizeandplay_audio(first_chunk, songcounter, songcountergoal, generated_prompt)
 
             # Use the most recent 640000 tokens for further generation
             audio_chunk = audio_chunk[:, -80000:]
@@ -62,13 +64,13 @@ def generate_music(audio_chunk, text_inputs, songcountergoal):
             audio_chunk = audio_chunk.astype(np.float32)
             audio_chunk /= np.max(np.abs(audio_chunk))
 
-    return resizeandplay_audio(audio_chunk, songcounter, songcountergoal)
+    return resizeandplay_audio(audio_chunk, songcounter, songcountergoal, generated_prompt)
 
 import numpy as np
 
 # ... (other code)
 
-def resizeandplay_audio(audio_chunk, songcounter, songcountergoal):
+def resizeandplay_audio(audio_chunk, songcounter, songcountergoal, generated_prompt):
     global full_audio_data
     
 
@@ -82,27 +84,48 @@ def resizeandplay_audio(audio_chunk, songcounter, songcountergoal):
             # Reshape each chunk to (1, 1, n) and then concatenate along the time axis
             audio_data = np.concatenate([chunk.reshape(1, 1, -1) for chunk in full_audio_data], axis=2)
             print(audio_data.shape)
-            return playmusic(audio_data)
+            return playmusic(audio_data, generated_prompt, songcounter)
         else:
             print("Not all audio chunks have the same dimensions. Skipping concatenation.")
             return
 
 
 
-def playmusic(audio_data):
+def playmusic(audio_data, generated_prompt, songcounter):
     # Parameters for pyaudio
-    print("playing music")
+    print(f"songcounter" + str(songcounter))
+    songcounter = 0
+    print(f"Playing music for prompt: {generated_prompt}")
     FORMAT = pyaudio.paFloat32
     CHANNELS = 1
     RATE = 44100  # Adjust this value if needed
+
+    wav_filename = "temp_audio.wav"
+    mp3_filename = f"music_prompt.mp3"
 
     # Start pyaudio stream and play audio
     p = pyaudio.PyAudio()
     stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, output=True)
     stream.write(audio_data.tobytes())
+
+    with wave.open(wav_filename, 'wb') as wf:
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(p.get_sample_size(FORMAT))
+        wf.setframerate(RATE)
+        wf.writeframes(audio_data)
+
+
     stream.stop_stream()
     stream.close()
     p.terminate()
+
+    audio = AudioSegment.from_wav(wav_filename)
+    audio.export(mp3_filename, format="mp3", bitrate="320k")
+
+    # Optionally, remove the temporary WAV file
+    os.remove(wav_filename)
+
+    print(f"Music saved as {mp3_filename}")
 
 if __name__ == "__main__":
     num_prompts = 3  # Number of prompts to generate
@@ -124,17 +147,18 @@ if __name__ == "__main__":
         # Decide on chunk size:
         chunk_length = 128  # Adjust based on what works
 
-        songcountergoal = random.randint(16, 64)
+        songcountergoal = random.randint(5, 7)
 
-        while songcounter < songcountergoal:
+        for _ in range(songcountergoal):
             outputs = model.generate(**text_inputs, do_sample=True, guidance_scale=3, max_new_tokens=chunk_length)
             print(outputs.shape)
             print("generating")
 
             audio_chunk = outputs[0].cpu().numpy()
             
+            print(f"Prompt {i + 1}: {generated_prompt}")
             print(audio_chunk.shape[1])
 
-            generate_music(audio_chunk, text_inputs, songcountergoal)
-            songcounter += 1
+            generate_music(audio_chunk, text_inputs, songcountergoal, generated_prompt)
+
 

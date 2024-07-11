@@ -1,13 +1,17 @@
 import openai
 import random
+import os
+from dotenv import load_dotenv
 
 # I would like to control the amount of prompts I can make and seed them with random numbers
 
 
 
-# Set your OpenAI API key here
-api_key = "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"
-openai.api_key = api_key
+
+api_key_openai = os.getenv('OPENAI_API_KEY')
+openai.api_key = api_key_openai
+
+
 
 def generate_prompt(seed):
     return f"""

@@ -1,15 +1,17 @@
-from elevenlabs import generate, play, set_api_key,Voice, VoiceDesign, Gender, Age, Accent
+from elevenlabs import generate, play, set_api_key,Voice, VoiceDesign, Gender, Age, Accent, set_api_key
 import os
+from dotenv import load_dotenv
 import openai
 import random
 
 
 
-set_api_key("cae4c753ad710c7d68433594a8134e50")
+load_dotenv()  # Load environment variables
 
-api_key_openai = "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"
+set_api_key(os.getenv('ELEVENLABS_API_KEY'))
+
+api_key_openai = os.getenv('OPENAI_API_KEY')
 openai.api_key = api_key_openai
-
 
 def generate_prompt(seed):
     return f"""{seed} You are an old Lousiana man from the bayou, youve been listening to Jazz since before Louis Armstrong 
